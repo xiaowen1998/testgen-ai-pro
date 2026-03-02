@@ -1,0 +1,617 @@
+---
+alwaysApply: true
+---
+# PrintAutoTestcases - 测试用例生成专业规范
+
+## 核心目标
+根据需求文档（PDF/Word）生成符合行业标准的专业测试用例，涵盖功能测试、接口测试、安全测试、兼容性测试等。
+
+## 测试用例设计方法论
+
+### 1. 功能测试用例设计
+
+#### 1.1 等价类划分法
+```python
+class EquivalenceClassTest:
+    """等价类划分测试用例生成"""
+    
+    @staticmethod
+    def generate_equivalence_cases(field_info: Dict) -> List[TestCase]:
+        """
+        根据字段信息生成等价类测试用例
+        
+        Args:
+            field_info: 字段信息 {
+                "name": "用户名",
+                "type": "string", 
+                "valid_range": "3-20字符",
+                "format": "字母数字下划线"
+            }
+        """
+        cases = []
+        
+        # 有效等价类
+        cases.append({
+            "case_id": f"EC_Valid_{field_info['name']}",
+            "case_name": f"{field_info['name']}有效等价类测试",
+            "test_data": "admin123",
+            "expected_result": "输入成功",
+            "test_type": "功能测试-等价类划分",
+            "priority": "高"
+        })
+        
+        # 无效等价类 - 长度不符
+        cases.append({
+            "case_id": f"EC_Invalid_Length_{field_info['name']}",
+            "case_name": f"{field_info['name']}长度无效等价类测试", 
+            "test_data": "ab",  # 少于3字符
+            "expected_result": "提示长度错误",
+            "test_type": "功能测试-等价类划分",
+            "priority": "高"
+        })
+        
+        # 无效等价类 - 格式不符
+        cases.append({
+            "case_id": f"EC_Invalid_Format_{field_info['name']}",
+            "case_name": f"{field_info['name']}格式无效等价类测试",
+            "test_data": "admin@123",  # 包含特殊字符
+            "expected_result": "提示格式错误", 
+            "test_type": "功能测试-等价类划分",
+            "priority": "高"
+        })
+        
+        return cases
+```
+
+#### 1.2 边界值分析法
+```python
+class BoundaryValueTest:
+    """边界值测试用例生成"""
+    
+    @staticmethod
+    def generate_boundary_cases(field_info: Dict) -> List[TestCase]:
+        """生成边界值测试用例"""
+        cases = []
+        
+        if field_info.get("min_length") and field_info.get("max_length"):
+            min_len = field_info["min_length"]
+            max_len = field_info["max_length"]
+            
+            # 最小值边界
+            cases.extend([
+                {
+                    "case_id": f"BV_Min_{field_info['name']}",
+                    "case_name": f"{field_info['name']}最小值边界测试",
+                    "test_data": "a" * min_len,
+                    "expected_result": "输入成功",
+                    "test_type": "功能测试-边界值分析"
+                },
+                {
+                    "case_id": f"BV_Min_Minus1_{field_info['name']}",
+                    "case_name": f"{field_info['name']}最小值-1边界测试",
+                    "test_data": "a" * (min_len - 1),
+                    "expected_result": "提示长度过短",
+                    "test_type": "功能测试-边界值分析"
+                }
+            ])
+            
+            # 最大值边界
+            cases.extend([
+                {
+                    "case_id": f"BV_Max_{field_info['name']}",
+                    "case_name": f"{field_info['name']}最大值边界测试",
+                    "test_data": "a" * max_len,
+                    "expected_result": "输入成功",
+                    "test_type": "功能测试-边界值分析"
+                },
+                {
+                    "case_id": f"BV_Max_Plus1_{field_info['name']}",
+                    "case_name": f"{field_info['name']}最大值+1边界测试",
+                    "test_data": "a" * (max_len + 1),
+                    "expected_result": "提示长度过长",
+                    "test_type": "功能测试-边界值分析"
+                }
+            ])
+        
+        return cases
+```
+
+#### 1.3 错误推断法
+```python
+class ErrorGuessingTest:
+    """错误推断法测试用例生成"""
+    
+    @staticmethod
+    def generate_error_guessing_cases(functionality: str) -> List[TestCase]:
+        """基于经验生成错误推断测试用例"""
+        cases = []
+        
+        # 常见错误场景
+        common_errors = {
+            "登录": [
+                {"data": "", "error": "空用户名密码"},
+                {"data": "' OR '1'='1", "error": "SQL注入攻击"},
+                {"data": "<script>alert('xss')</script>", "error": "XSS攻击"},
+                {"data": "admin\x00admin", "error": "空字节注入"}
+            ],
+            "文件上传": [
+                {"data": "test.php", "error": "恶意文件上传"},
+                {"data": "../../etc/passwd", "error": "路径遍历攻击"},
+                {"data": "10GB.file", "error": "超大文件上传"},
+                {"data": "virus.exe", "error": "病毒文件上传"}
+            ]
+        }
+        
+        if functionality in common_errors:
+            for i, error_case in enumerate(common_errors[functionality]):
+                cases.append({
+                    "case_id": f"EG_{functionality}_{i+1}",
+                    "case_name": f"{functionality}错误推断-{error_case['error']}",
+                    "test_data": error_case["data"],
+                    "expected_result": "系统正确拒绝或处理",
+                    "test_type": "功能测试-错误推断法",
+                    "priority": "中"
+                })
+        
+        return cases
+```
+
+### 2. 接口测试用例设计
+
+#### 2.1 API接口测试
+```python
+class APITestCaseGenerator:
+    """API接口测试用例生成器"""
+    
+    @staticmethod
+    def generate_api_test_cases(api_info: Dict) -> List[TestCase]:
+        """生成API接口测试用例"""
+        cases = []
+        
+        # 正常调用测试
+        cases.append({
+            "case_id": f"API_Normal_{api_info['name']}",
+            "case_name": f"{api_info['name']}正常调用测试",
+            "method": api_info["method"],
+            "url": api_info["url"],
+            "headers": {"Content-Type": "application/json"},
+            "request_body": api_info.get("sample_request", {}),
+            "expected_status": 200,
+            "expected_response": api_info.get("sample_response", {}),
+            "test_type": "接口测试-功能验证"
+        })
+        
+        # 参数缺失测试
+        cases.append({
+            "case_id": f"API_MissingParam_{api_info['name']}",
+            "case_name": f"{api_info['name']}必填参数缺失测试",
+            "method": api_info["method"],
+            "url": api_info["url"],
+            "headers": {"Content-Type": "application/json"},
+            "request_body": {},
+            "expected_status": 400,
+            "expected_response": {"error": "参数缺失"},
+            "test_type": "接口测试-异常验证"
+        })
+        
+        # 非法参数测试
+        cases.append({
+            "case_id": f"API_InvalidParam_{api_info['name']}",
+            "case_name": f"{api_info['name']}非法参数测试",
+            "method": api_info["method"],
+            "url": api_info["url"],
+            "headers": {"Content-Type": "application/json"},
+            "request_body": {"invalid": "data"},
+            "expected_status": 400,
+            "expected_response": {"error": "参数格式错误"},
+            "test_type": "接口测试-异常验证"
+        })
+        
+        # 权限验证测试
+        cases.append({
+            "case_id": f"API_Auth_{api_info['name']}",
+            "case_name": f"{api_info['name']}权限验证测试",
+            "method": api_info["method"],
+            "url": api_info["url"],
+            "headers": {"Content-Type": "application/json"},  # 不包含Authorization
+            "request_body": api_info.get("sample_request", {}),
+            "expected_status": 401,
+            "expected_response": {"error": "未授权访问"},
+            "test_type": "接口测试-安全验证"
+        })
+        
+        return cases
+```
+
+### 3. 安全测试用例设计
+
+#### 3.1 安全漏洞测试
+```python
+class SecurityTestGenerator:
+    """安全测试用例生成器"""
+    
+    @staticmethod
+    def generate_security_test_cases(module_info: Dict) -> List[TestCase]:
+        """生成安全测试用例"""
+        cases = []
+        
+        # SQL注入测试
+        cases.append({
+            "case_id": "SEC_SQLInjection_001",
+            "case_name": "SQL注入漏洞测试",
+            "test_steps": [
+                "在登录表单用户名字段输入: admin' OR '1'='1' --",
+                "在密码字段输入任意值",
+                "点击登录按钮"
+            ],
+            "expected_result": "系统拒绝登录，显示错误信息，不暴露数据库结构",
+            "test_type": "安全测试-SQL注入",
+            "severity": "高",
+            "cwe_id": "CWE-89"
+        })
+        
+        # XSS攻击测试
+        cases.append({
+            "case_id": "SEC_XSS_001",
+            "case_name": "跨站脚本攻击测试",
+            "test_steps": [
+                "在用户输入框输入: <script>alert('XSS')</script>",
+                "提交表单",
+                "查看页面响应"
+            ],
+            "expected_result": "脚本被正确转义，不执行恶意代码",
+            "test_type": "安全测试-XSS",
+            "severity": "高",
+            "cwe_id": "CWE-79"
+        })
+        
+        # 文件上传安全测试
+        cases.append({
+            "case_id": "SEC_FileUpload_001",
+            "case_name": "恶意文件上传测试",
+            "test_steps": [
+                "准备包含恶意代码的PHP文件",
+                "尝试上传该文件",
+                "检查文件是否被正确拒绝"
+            ],
+            "expected_result": "系统拒绝上传恶意文件，提示文件类型不支持",
+            "test_type": "安全测试-文件上传",
+            "severity": "高",
+            "cwe_id": "CWE-434"
+        })
+        
+        # 权限提升测试
+        cases.append({
+            "case_id": "SEC_Privilege_001", 
+            "case_name": "权限提升漏洞测试",
+            "test_steps": [
+                "使用普通用户账号登录",
+                "尝试访问管理员功能URL",
+                "检查系统响应"
+            ],
+            "expected_result": "系统拒绝访问，返回403禁止访问错误",
+            "test_type": "安全测试-权限控制",
+            "severity": "高",
+            "cwe_id": "CWE-269"
+        })
+        
+        return cases
+```
+
+### 4. 兼容性测试用例设计
+
+#### 4.1 浏览器兼容性测试
+```python
+class CompatibilityTestGenerator:
+    """兼容性测试用例生成器"""
+    
+    @staticmethod
+    def generate_browser_compatibility_cases() -> List[TestCase]:
+        """生成浏览器兼容性测试用例"""
+        cases = []
+        browsers = [
+            {"name": "Chrome", "versions": ["120", "119", "118"]},
+            {"name": "Firefox", "versions": ["119", "118", "117"]},
+            {"name": "Safari", "versions": ["17", "16", "15"]},
+            {"name": "Edge", "versions": ["119", "118", "117"]}
+        ]
+        
+        for browser in browsers:
+            for version in browser["versions"]:
+                cases.append({
+                    "case_id": f"COMPAT_Browser_{browser['name']}_{version}",
+                    "case_name": f"{browser['name']} {version}浏览器兼容性测试",
+                    "test_environment": f"{browser['name']} {version}",
+                    "test_steps": [
+                        f"在{browser['name']} {version}浏览器中打开应用",
+                        "测试主要功能是否正常",
+                        "检查页面显示是否正确",
+                        "验证交互功能是否可用"
+                    ],
+                    "expected_result": "所有功能正常，页面显示正确",
+                    "test_type": "兼容性测试-浏览器",
+                    "priority": "中"
+                })
+        
+        return cases
+    
+    @staticmethod
+    def generate_device_compatibility_cases() -> List[TestCase]:
+        """生成设备兼容性测试用例"""
+        cases = []
+        devices = [
+            {"type": "桌面", "resolutions": ["1920x1080", "1366x768", "1440x900"]},
+            {"type": "平板", "resolutions": ["1024x768", "1280x800", "2048x1536"]},
+            {"type": "手机", "resolutions": ["375x667", "414x896", "360x640"]}
+        ]
+        
+        for device in devices:
+            for resolution in device["resolutions"]:
+                cases.append({
+                    "case_id": f"COMPAT_Device_{device['type']}_{resolution}",
+                    "case_name": f"{device['type']}设备({resolution})兼容性测试",
+                    "test_environment": f"{device['type']} - {resolution}",
+                    "test_steps": [
+                        f"设置屏幕分辨率为{resolution}",
+                        "打开应用并测试主要功能",
+                        "检查页面布局是否适配",
+                        "验证触摸/点击操作是否正常"
+                    ],
+                    "expected_result": "页面完美适配，功能使用正常",
+                    "test_type": "兼容性测试-设备",
+                    "priority": "高"
+                })
+        
+        return cases
+```
+
+## AI Prompt 优化策略
+
+### 专业测试用例生成Prompt模板
+```python
+class TestCasePromptTemplate:
+    """测试用例生成的专业Prompt模板"""
+    
+    @staticmethod
+    def create_comprehensive_prompt(requirements_text: str, test_types: List[str]) -> str:
+        """创建综合测试用例生成Prompt"""
+        
+        base_prompt = f"""
+作为一名资深测试工程师，请根据以下需求文档生成专业的测试用例。
+
+## 需求文档内容：
+{requirements_text}
+
+## 需要生成的测试用例类型：
+{', '.join(test_types)}
+
+## 测试用例设计要求：
+
+### 1. 功能测试用例设计方法：
+- **等价类划分法**：识别输入域的有效等价类和无效等价类
+- **边界值分析法**：针对边界条件设计测试用例  
+- **错误推断法**：基于经验推断可能的错误情况
+- **因果图法**：分析输入条件的组合关系
+- **判定表法**：处理复杂的业务逻辑组合
+
+### 2. 接口测试用例要点：
+- 正常调用验证（正确参数、预期响应）
+- 异常调用验证（参数缺失、参数错误、非法值）
+- 边界值测试（最大最小值、空值、特殊字符）
+- 安全性验证（权限检查、输入验证）
+- 性能验证（响应时间、并发处理）
+
+### 3. 安全测试用例要点：
+- **输入验证**：SQL注入、XSS攻击、命令注入
+- **身份认证**：弱密码、暴力破解、会话管理
+- **权限控制**：水平权限、垂直权限、权限提升
+- **数据安全**：敏感信息泄露、数据传输加密
+- **文件安全**：恶意文件上传、路径遍历
+
+### 4. 兼容性测试用例要点：
+- **浏览器兼容性**：主流浏览器及版本
+- **操作系统兼容性**：Windows、macOS、Linux
+- **移动设备兼容性**：不同屏幕尺寸、操作系统
+- **网络环境兼容性**：不同网络速度、稳定性
+
+## 输出格式要求：
+
+请按以下JSON格式输出测试用例：
+
+```json
+{{
+  "test_suite": "{{需求模块名称}}测试用例",
+  "test_categories": [
+    {{
+      "category": "功能测试",
+      "subcategories": [
+        {{
+          "subcategory": "等价类划分",
+          "test_cases": [
+            {{
+              "case_id": "TC_FUNC_EQ_001",
+              "case_name": "用户名有效等价类测试",
+              "priority": "高",
+              "preconditions": "系统正常运行，用户在登录页面",
+              "test_steps": [
+                "输入有效用户名（6-20位字母数字）",
+                "输入有效密码",
+                "点击登录按钮"
+              ],
+              "test_data": "admin123",
+              "expected_result": "登录成功，跳转至主页面",
+              "design_method": "等价类划分法",
+              "test_type": "正向测试"
+            }}
+          ]
+        }}
+      ]
+    }}
+  ]
+}}
+```
+
+请确保：
+1. 测试用例编号规范（TC_类型_方法_序号）
+2. 测试步骤清晰具体，可执行性强
+3. 预期结果明确，可验证
+4. 覆盖正向测试和负向测试
+5. 优先级设置合理（高、中、低）
+6. 包含测试数据和前置条件
+
+现在请开始生成测试用例：
+"""
+        return base_prompt
+```
+
+## 数据模型优化
+
+### 测试用例数据模型
+```python
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum
+from sqlalchemy.orm import relationship
+from enum import Enum as PyEnum
+
+class TestCaseType(PyEnum):
+    FUNCTIONAL = "功能测试"
+    INTERFACE = "接口测试" 
+    SECURITY = "安全测试"
+    COMPATIBILITY = "兼容性测试"
+    PERFORMANCE = "性能测试"
+
+class TestCasePriority(PyEnum):
+    HIGH = "高"
+    MEDIUM = "中"
+    LOW = "低"
+
+class TestCase(Base):
+    """测试用例模型"""
+    __tablename__ = "test_cases"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    case_id = Column(String(50), unique=True, index=True, nullable=False)
+    case_name = Column(String(200), nullable=False)
+    document_id = Column(String, ForeignKey("documents.id"), nullable=False)
+    
+    # 测试用例分类
+    test_type = Column(Enum(TestCaseType), nullable=False)
+    test_subtype = Column(String(100), nullable=True)  # 如：等价类划分、边界值分析
+    priority = Column(Enum(TestCasePriority), default=TestCasePriority.MEDIUM)
+    
+    # 测试内容
+    preconditions = Column(Text, nullable=True)
+    test_steps = Column(Text, nullable=False)  # JSON格式存储步骤数组
+    test_data = Column(Text, nullable=True)
+    expected_result = Column(Text, nullable=False)
+    
+    # 设计方法
+    design_method = Column(String(50), nullable=True)  # 设计方法：等价类、边界值等
+    test_category = Column(String(20), nullable=True)  # 正向测试、负向测试
+    
+    # 扩展信息
+    severity = Column(String(20), nullable=True)  # 对于安全测试用例
+    cwe_id = Column(String(20), nullable=True)     # CWE编号
+    test_environment = Column(String(200), nullable=True)  # 测试环境要求
+    
+    # 关联关系
+    document = relationship("Document", back_populates="test_cases")
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+## XMind结构优化
+
+### 测试用例专用XMind模板
+```python
+class TestCaseXMindGenerator:
+    """测试用例专用XMind生成器"""
+    
+    @staticmethod
+    def generate_testcase_xmind(test_cases: List[TestCase], product_name: str) -> Dict:
+        """生成测试用例XMind结构"""
+        
+        # 按测试类型分组
+        grouped_cases = {}
+        for case in test_cases:
+            test_type = case.test_type.value
+            if test_type not in grouped_cases:
+                grouped_cases[test_type] = {}
+            
+            subtype = case.test_subtype or "其他"
+            if subtype not in grouped_cases[test_type]:
+                grouped_cases[test_type][subtype] = []
+            
+            grouped_cases[test_type][subtype].append(case)
+        
+        # 构建XMind结构
+        modules = []
+        for test_type, subtypes in grouped_cases.items():
+            # 创建测试类型模块
+            module = {
+                "name": test_type,
+                "menus": []
+            }
+            
+            for subtype, cases in subtypes.items():
+                # 创建子类型菜单
+                menu = {
+                    "name": subtype,
+                    "children": []
+                }
+                
+                for case in cases:
+                    # 创建测试用例
+                    case_node = {
+                        "name": f"{case.case_id} - {case.case_name}",
+                        "type": "case",
+                        "steps": [
+                            {"text": f"优先级: {case.priority.value}", "resource": "属性"},
+                            {"text": f"前置条件: {case.preconditions or '无'}", "resource": "前置条件"},
+                            {"text": "测试步骤:", "resource": "步骤标题"}
+                        ]
+                    }
+                    
+                    # 添加具体测试步骤
+                    if case.test_steps:
+                        try:
+                            steps = json.loads(case.test_steps)
+                            for i, step in enumerate(steps, 1):
+                                case_node["steps"].append({
+                                    "text": f"步骤{i}: {step}",
+                                    "resource": "测试步骤"
+                                })
+                        except json.JSONDecodeError:
+                            case_node["steps"].append({
+                                "text": case.test_steps,
+                                "resource": "测试步骤"
+                            })
+                    
+                    # 添加测试数据和预期结果
+                    if case.test_data:
+                        case_node["steps"].append({
+                            "text": f"测试数据: {case.test_data}",
+                            "resource": "测试数据"
+                        })
+                    
+                    case_node["steps"].append({
+                        "text": f"预期结果: {case.expected_result}",
+                        "resource": "预期结果"
+                    })
+                    
+                    menu["children"].append(case_node)
+                
+                module["menus"].append(menu)
+            
+            modules.append(module)
+        
+        return XMindTestcaseGenerator.generate_xmind(f"{product_name}测试用例", modules)
+```
+
+---
+
+**重要提醒**: 
+- 测试用例生成必须基于专业的测试设计方法论
+- AI生成的用例需要人工review和优化
+- 不同类型的测试用例需要不同的设计策略
+- 测试用例应该具备良好的可执行性和可验证性

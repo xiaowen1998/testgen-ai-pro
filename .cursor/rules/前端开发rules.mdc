@@ -1,0 +1,611 @@
+---
+alwaysApply: true
+---
+
+# PrintAutoTestcases - 前端开发标准流程规范
+
+## 项目概述
+基于React 18 + TypeScript + Ant Design的测试用例生成平台前端
+
+## 开发环境要求
+- Node.js 16+
+- npm 或 yarn
+- TypeScript 4.9+
+- React 18.2+
+
+## 代码规范
+
+### 文件和目录结构
+```
+src/
+├── components/          # 可复用组件
+│   ├── Layout/         # 布局组件
+│   ├── Common/         # 通用组件
+│   └── Business/       # 业务组件
+├── pages/              # 页面组件
+├── services/           # API服务
+├── utils/              # 工具函数
+├── types/              # TypeScript类型定义
+├── hooks/              # 自定义Hooks
+├── styles/             # 样式文件
+└── constants/          # 常量定义
+```
+
+### 命名规范
+- **文件名**: PascalCase (Header.tsx, UserProfile.tsx)
+- **组件名**: PascalCase (UserProfile, DocumentList)
+- **变量/函数**: camelCase (userName, handleSubmit)
+- **常量**: UPPER_SNAKE_CASE (API_BASE_URL, MAX_FILE_SIZE)
+- **接口/类型**: PascalCase，I前缀 (IUser, IDocument)
+
+### 组件开发规范
+
+#### 1. 函数组件格式
+```typescript
+import React, { useState, useEffect } from 'react';
+import { Button, Card } from 'antd';
+import type { FC } from 'react';
+
+interface IProps {
+  title: string;
+  onSubmit: (data: any) => void;
+}
+
+const ComponentName: FC<IProps> = ({ title, onSubmit }) => {
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // 副作用逻辑
+  }, []);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      // 业务逻辑
+      onSubmit(data);
+    } catch (error) {
+      console.error('操作失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card title={title}>
+      <Button loading={loading} onClick={handleSubmit}>
+        提交
+      </Button>
+    </Card>
+  );
+};
+
+export default ComponentName;
+```
+
+#### 2. Props接口定义
+- 必须定义Props接口
+- 使用可选属性和默认值
+- 添加JSDoc注释
+
+```typescript
+interface IUserCardProps {
+  /** 用户信息 */
+  user: IUser;
+  /** 是否显示编辑按钮 */
+  showEdit?: boolean;
+  /** 编辑回调函数 */
+  onEdit?: (user: IUser) => void;
+}
+```
+
+### 状态管理规范
+
+#### 1. 本地状态
+- 使用useState管理组件内部状态
+- 复杂状态使用useReducer
+- 状态命名要语义化
+
+#### 2. 全局状态
+- 使用Context API管理全局状态
+- 避免过度使用全局状态
+- 状态更新要使用不可变方式
+
+### API调用规范
+
+#### 1. 统一错误处理
+```typescript
+import { message } from 'antd';
+import api from '@/services/api';
+
+const handleApiCall = async () => {
+  try {
+    const result = await api.post('/endpoint', data);
+    message.success('操作成功');
+    return result;
+  } catch (error) {
+    message.error('操作失败，请重试');
+    console.error('API调用失败:', error);
+    throw error;
+  }
+};
+```
+
+#### 2. Loading状态管理
+```typescript
+const [loading, setLoading] = useState(false);
+
+const fetchData = async () => {
+  setLoading(true);
+  try {
+    const data = await api.get('/data');
+    setData(data);
+  } catch (error) {
+    // 错误处理
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+### 样式规范
+
+#### 1. 样式组织
+- 优先使用Ant Design组件默认样式
+- 自定义样式使用CSS Modules或styled-components
+- 避免内联样式，除非动态计算
+
+#### 2. 响应式设计
+- 使用Ant Design的栅格系统
+- 移动端优先的响应式设计
+- 使用相对单位(rem, %)
+
+### 性能优化规范
+
+#### 1. 组件优化
+- 使用React.memo包装纯组件
+- 使用useMemo缓存计算结果
+- 使用useCallback缓存函数引用
+
+#### 2. 代码分割
+- 路由级别的懒加载
+- 大型组件按需加载
+- 第三方库按需引入
+
+### 测试规范
+
+#### 1. 单元测试
+- 使用Jest + React Testing Library
+- 测试组件渲染和交互
+- 模拟API调用
+
+#### 2. 测试覆盖率
+- 组件测试覆盖率 >= 80%
+- 工具函数测试覆盖率 >= 90%
+
+### 开发流程
+
+#### 1. 开发前
+- 创建功能分支: `git checkout -b feature/feature-name`
+- 了解设计稿和需求文档
+- 确认API接口定义
+
+#### 2. 开发中
+- 遵循组件开发规范
+- 及时提交代码: `git commit -m "feat: 添加用户管理功能"`
+- 运行`npm test`确保测试通过
+
+#### 3. 开发后
+- 代码自测和功能验证
+- 运行`npm run build`确保构建成功
+- 提交Pull Request进行代码审查
+
+### 代码审查清单
+
+#### 1. 功能性
+- [ ] 功能实现是否符合需求
+- [ ] 边界情况处理是否完善
+- [ ] 错误处理是否合理
+
+#### 2. 代码质量
+- [ ] 组件拆分是否合理
+- [ ] 命名是否语义化
+- [ ] 是否遵循编码规范
+- [ ] 是否有重复代码
+
+#### 3. 性能
+- [ ] 是否有不必要的重渲染
+- [ ] 是否正确使用memo/useMemo
+- [ ] 大列表是否使用虚拟滚动
+
+#### 4. 可维护性
+- [ ] 代码逻辑是否清晰
+- [ ] 注释是否充分
+- [ ] 类型定义是否完整
+
+### 常见问题和解决方案
+
+#### 1. 状态更新问题
+```typescript
+// ❌ 错误：直接修改状态
+setUser(user.name = newName);
+
+// ✅ 正确：创建新对象
+setUser({ ...user, name: newName });
+```
+
+#### 2. 异步处理
+```typescript
+// ❌ 错误：未处理组件卸载
+useEffect(() => {
+  fetchData().then(setData);
+}, []);
+
+// ✅ 正确：使用cleanup函数
+useEffect(() => {
+  let isMounted = true;
+  fetchData().then(data => {
+    if (isMounted) setData(data);
+  });
+  return () => { isMounted = false; };
+}, []);
+```
+
+#### 3. 依赖数组
+```typescript
+// ❌ 错误：遗漏依赖
+useEffect(() => {
+  doSomething(user.id);
+}, []); // 缺少user.id依赖
+
+// ✅ 正确：包含所有依赖
+useEffect(() => {
+  doSomething(user.id);
+}, [user.id]);
+```
+
+### 工具配置
+
+#### 1. ESLint配置
+```json
+{
+  "extends": [
+    "react-app",
+    "react-app/jest"
+  ],
+  "rules": {
+    "prefer-const": "error",
+    "no-var": "error",
+    "no-console": "warn"
+  }
+}
+```
+
+#### 2. Prettier配置
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2
+}
+```
+
+### 部署规范
+
+#### 1. 构建优化
+- 启用代码压缩
+- 配置Bundle分析
+- 开启Gzip压缩
+
+#### 2. 环境配置
+- 区分开发/测试/生产环境
+- 使用环境变量管理配置
+- 配置CDN加速静态资源
+
+---
+
+**注意**: 所有开发必须严格遵循此规范，确保代码质量和项目的可维护性。 # PrintAutoTestcases - 前端开发标准流程规范
+
+## 项目概述
+基于React 18 + TypeScript + Ant Design的测试用例生成平台前端
+
+## 开发环境要求
+- Node.js 16+
+- npm 或 yarn
+- TypeScript 4.9+
+- React 18.2+
+
+## 代码规范
+
+### 文件和目录结构
+```
+src/
+├── components/          # 可复用组件
+│   ├── Layout/         # 布局组件
+│   ├── Common/         # 通用组件
+│   └── Business/       # 业务组件
+├── pages/              # 页面组件
+├── services/           # API服务
+├── utils/              # 工具函数
+├── types/              # TypeScript类型定义
+├── hooks/              # 自定义Hooks
+├── styles/             # 样式文件
+└── constants/          # 常量定义
+```
+
+### 命名规范
+- **文件名**: PascalCase (Header.tsx, UserProfile.tsx)
+- **组件名**: PascalCase (UserProfile, DocumentList)
+- **变量/函数**: camelCase (userName, handleSubmit)
+- **常量**: UPPER_SNAKE_CASE (API_BASE_URL, MAX_FILE_SIZE)
+- **接口/类型**: PascalCase，I前缀 (IUser, IDocument)
+
+### 组件开发规范
+
+#### 1. 函数组件格式
+```typescript
+import React, { useState, useEffect } from 'react';
+import { Button, Card } from 'antd';
+import type { FC } from 'react';
+
+interface IProps {
+  title: string;
+  onSubmit: (data: any) => void;
+}
+
+const ComponentName: FC<IProps> = ({ title, onSubmit }) => {
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // 副作用逻辑
+  }, []);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      // 业务逻辑
+      onSubmit(data);
+    } catch (error) {
+      console.error('操作失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card title={title}>
+      <Button loading={loading} onClick={handleSubmit}>
+        提交
+      </Button>
+    </Card>
+  );
+};
+
+export default ComponentName;
+```
+
+#### 2. Props接口定义
+- 必须定义Props接口
+- 使用可选属性和默认值
+- 添加JSDoc注释
+
+```typescript
+interface IUserCardProps {
+  /** 用户信息 */
+  user: IUser;
+  /** 是否显示编辑按钮 */
+  showEdit?: boolean;
+  /** 编辑回调函数 */
+  onEdit?: (user: IUser) => void;
+}
+```
+
+### 状态管理规范
+
+#### 1. 本地状态
+- 使用useState管理组件内部状态
+- 复杂状态使用useReducer
+- 状态命名要语义化
+
+#### 2. 全局状态
+- 使用Context API管理全局状态
+- 避免过度使用全局状态
+- 状态更新要使用不可变方式
+
+### API调用规范
+
+#### 1. 统一错误处理
+```typescript
+import { message } from 'antd';
+import api from '@/services/api';
+
+const handleApiCall = async () => {
+  try {
+    const result = await api.post('/endpoint', data);
+    message.success('操作成功');
+    return result;
+  } catch (error) {
+    message.error('操作失败，请重试');
+    console.error('API调用失败:', error);
+    throw error;
+  }
+};
+```
+
+#### 2. Loading状态管理
+```typescript
+const [loading, setLoading] = useState(false);
+
+const fetchData = async () => {
+  setLoading(true);
+  try {
+    const data = await api.get('/data');
+    setData(data);
+  } catch (error) {
+    // 错误处理
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+### 样式规范
+
+#### 1. 样式组织
+- 优先使用Ant Design组件默认样式
+- 自定义样式使用CSS Modules或styled-components
+- 避免内联样式，除非动态计算
+
+#### 2. 响应式设计
+- 使用Ant Design的栅格系统
+- 移动端优先的响应式设计
+- 使用相对单位(rem, %)
+
+### 性能优化规范
+
+#### 1. 组件优化
+- 使用React.memo包装纯组件
+- 使用useMemo缓存计算结果
+- 使用useCallback缓存函数引用
+
+#### 2. 代码分割
+- 路由级别的懒加载
+- 大型组件按需加载
+- 第三方库按需引入
+
+### 测试规范
+
+#### 1. 单元测试
+- 使用Jest + React Testing Library
+- 测试组件渲染和交互
+- 模拟API调用
+
+#### 2. 测试覆盖率
+- 组件测试覆盖率 >= 80%
+- 工具函数测试覆盖率 >= 90%
+
+### 开发流程
+
+#### 1. 开发前
+- 创建功能分支: `git checkout -b feature/feature-name`
+- 了解设计稿和需求文档
+- 确认API接口定义
+
+#### 2. 开发中
+- 遵循组件开发规范
+- 及时提交代码: `git commit -m "feat: 添加用户管理功能"`
+- 运行`npm test`确保测试通过
+
+#### 3. 开发后
+- 代码自测和功能验证
+- 运行`npm run build`确保构建成功
+- 提交Pull Request进行代码审查
+
+### 代码审查清单
+
+#### 1. 功能性
+- [ ] 功能实现是否符合需求
+- [ ] 边界情况处理是否完善
+- [ ] 错误处理是否合理
+
+#### 2. 代码质量
+- [ ] 组件拆分是否合理
+- [ ] 命名是否语义化
+- [ ] 是否遵循编码规范
+- [ ] 是否有重复代码
+
+#### 3. 性能
+- [ ] 是否有不必要的重渲染
+- [ ] 是否正确使用memo/useMemo
+- [ ] 大列表是否使用虚拟滚动
+
+#### 4. 可维护性
+- [ ] 代码逻辑是否清晰
+- [ ] 注释是否充分
+- [ ] 类型定义是否完整
+
+### 常见问题和解决方案
+
+#### 1. 状态更新问题
+```typescript
+// ❌ 错误：直接修改状态
+setUser(user.name = newName);
+
+// ✅ 正确：创建新对象
+setUser({ ...user, name: newName });
+```
+
+#### 2. 异步处理
+```typescript
+// ❌ 错误：未处理组件卸载
+useEffect(() => {
+  fetchData().then(setData);
+}, []);
+
+// ✅ 正确：使用cleanup函数
+useEffect(() => {
+  let isMounted = true;
+  fetchData().then(data => {
+    if (isMounted) setData(data);
+  });
+  return () => { isMounted = false; };
+}, []);
+```
+
+#### 3. 依赖数组
+```typescript
+// ❌ 错误：遗漏依赖
+useEffect(() => {
+  doSomething(user.id);
+}, []); // 缺少user.id依赖
+
+// ✅ 正确：包含所有依赖
+useEffect(() => {
+  doSomething(user.id);
+}, [user.id]);
+```
+
+### 工具配置
+
+#### 1. ESLint配置
+```json
+{
+  "extends": [
+    "react-app",
+    "react-app/jest"
+  ],
+  "rules": {
+    "prefer-const": "error",
+    "no-var": "error",
+    "no-console": "warn"
+  }
+}
+```
+
+#### 2. Prettier配置
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2
+}
+```
+
+### 部署规范
+
+#### 1. 构建优化
+- 启用代码压缩
+- 配置Bundle分析
+- 开启Gzip压缩
+
+#### 2. 环境配置
+- 区分开发/测试/生产环境
+- 使用环境变量管理配置
+- 配置CDN加速静态资源
+
+---
+
+**注意**: 所有开发必须严格遵循此规范，确保代码质量和项目的可维护性。 

@@ -1,0 +1,965 @@
+# PrintAutoTestcases - UI开发标准流程规范
+
+## 项目概述
+基于Ant Design + React + TypeScript的现代化企业级UI界面开发规范
+
+## 设计系统基础
+
+### 设计原则
+1. **一致性**: 统一的设计语言和交互模式
+2. **效率**: 提高用户操作效率和开发效率
+3. **可用性**: 良好的用户体验和无障碍访问
+4. **美观性**: 现代化、简洁、专业的视觉风格
+
+### 设计Token
+
+#### 颜色规范
+```css
+/* 主色调 */
+--primary-color: #1890ff;        /* 主品牌色 */
+--primary-light: #40a9ff;        /* 浅主色 */
+--primary-dark: #096dd9;         /* 深主色 */
+
+/* 功能色 */
+--success-color: #52c41a;        /* 成功 */
+--warning-color: #faad14;        /* 警告 */
+--error-color: #f5222d;          /* 错误 */
+--info-color: #1890ff;           /* 信息 */
+
+/* 中性色 */
+--text-primary: #262626;         /* 主要文本 */
+--text-secondary: #595959;       /* 次要文本 */
+--text-disabled: #bfbfbf;        /* 禁用文本 */
+--border-color: #d9d9d9;         /* 边框色 */
+--background-color: #fafafa;     /* 背景色 */
+--white: #ffffff;                /* 纯白 */
+
+/* 阴影 */
+--shadow-1: 0 2px 8px rgba(0, 0, 0, 0.06);
+--shadow-2: 0 4px 12px rgba(0, 0, 0, 0.15);
+--shadow-3: 0 6px 16px rgba(0, 0, 0, 0.08);
+```
+
+#### 字体规范
+```css
+/* 字体族 */
+--font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+/* 字体大小 */
+--font-size-xs: 12px;      /* 辅助文字 */
+--font-size-sm: 14px;      /* 正文（小） */
+--font-size-base: 16px;    /* 正文 */
+--font-size-lg: 18px;      /* 正文（大） */
+--font-size-xl: 20px;      /* 标题（小） */
+--font-size-2xl: 24px;     /* 标题 */
+--font-size-3xl: 30px;     /* 标题（大） */
+
+/* 行高 */
+--line-height-xs: 1.2;
+--line-height-sm: 1.4;
+--line-height-base: 1.5;
+--line-height-lg: 1.6;
+
+/* 字重 */
+--font-weight-light: 300;
+--font-weight-normal: 400;
+--font-weight-medium: 500;
+--font-weight-semibold: 600;
+--font-weight-bold: 700;
+```
+
+#### 间距规范
+```css
+/* 间距系统 - 8px基准 */
+--spacing-xs: 4px;       /* 0.5x */
+--spacing-sm: 8px;       /* 1x */
+--spacing-md: 16px;      /* 2x */
+--spacing-lg: 24px;      /* 3x */
+--spacing-xl: 32px;      /* 4x */
+--spacing-2xl: 48px;     /* 6x */
+--spacing-3xl: 64px;     /* 8x */
+
+/* 组件内边距 */
+--padding-xs: 4px 8px;
+--padding-sm: 8px 16px;
+--padding-md: 12px 24px;
+--padding-lg: 16px 32px;
+
+/* 圆角 */
+--radius-sm: 4px;
+--radius-base: 6px;
+--radius-lg: 8px;
+--radius-xl: 12px;
+```
+
+## 组件开发规范
+
+### 基础组件使用
+
+#### 1. 按钮组件
+```tsx
+import React from 'react';
+import { Button, Space } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+
+const ButtonExample: React.FC = () => {
+  return (
+    <Space>
+      {/* 主要操作 */}
+      <Button type="primary" icon={<PlusOutlined />}>
+        新建
+      </Button>
+      
+      {/* 次要操作 */}
+      <Button icon={<EditOutlined />}>
+        编辑
+      </Button>
+      
+      {/* 危险操作 */}
+      <Button danger icon={<DeleteOutlined />}>
+        删除
+      </Button>
+      
+      {/* 幽灵按钮 */}
+      <Button type="primary" ghost>
+        取消
+      </Button>
+    </Space>
+  );
+};
+```
+
+#### 2. 表单组件
+```tsx
+import React from 'react';
+import { Form, Input, Select, DatePicker, Button, Card } from 'antd';
+
+const FormExample: React.FC = () => {
+  const [form] = Form.useForm();
+
+  const onFinish = (values: any) => {
+    console.log('表单值:', values);
+  };
+
+  return (
+    <Card title="用户信息">
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onFinish}
+        requiredMark={false}
+      >
+        <Form.Item
+          label="用户名"
+          name="username"
+          rules={[
+            { required: true, message: '请输入用户名' },
+            { min: 3, message: '用户名至少3个字符' }
+          ]}
+        >
+          <Input placeholder="请输入用户名" />
+        </Form.Item>
+
+        <Form.Item
+          label="邮箱"
+          name="email"
+          rules={[
+            { required: true, message: '请输入邮箱' },
+            { type: 'email', message: '邮箱格式不正确' }
+          ]}
+        >
+          <Input placeholder="请输入邮箱地址" />
+        </Form.Item>
+
+        <Form.Item
+          label="角色"
+          name="role"
+          rules={[{ required: true, message: '请选择角色' }]}
+        >
+          <Select placeholder="请选择角色">
+            <Select.Option value="admin">管理员</Select.Option>
+            <Select.Option value="user">普通用户</Select.Option>
+          </Select>
+        </Form.Item>
+
+        <Form.Item>
+          <Button type="primary" htmlType="submit">
+            提交
+          </Button>
+          <Button style={{ marginLeft: 8 }} onClick={() => form.resetFields()}>
+            重置
+          </Button>
+        </Form.Item>
+      </Form>
+    </Card>
+  );
+};
+```
+
+#### 3. 表格组件
+```tsx
+import React, { useState } from 'react';
+import { Table, Tag, Space, Button, Popconfirm } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+
+interface DataType {
+  key: string;
+  name: string;
+  status: string;
+  createTime: string;
+}
+
+const TableExample: React.FC = () => {
+  const [loading, setLoading] = useState(false);
+
+  const columns: ColumnsType<DataType> = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+      sorter: true,
+      ellipsis: true,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => {
+        const statusMap = {
+          active: { color: 'green', text: '激活' },
+          inactive: { color: 'red', text: '未激活' },
+          pending: { color: 'orange', text: '待处理' },
+        };
+        const { color, text } = statusMap[status as keyof typeof statusMap];
+        return <Tag color={color}>{text}</Tag>;
+      },
+      filters: [
+        { text: '激活', value: 'active' },
+        { text: '未激活', value: 'inactive' },
+        { text: '待处理', value: 'pending' },
+      ],
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'createTime',
+      key: 'createTime',
+      sorter: true,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 200,
+      render: (_, record) => (
+        <Space size="middle">
+          <Button type="link" size="small">
+            编辑
+          </Button>
+          <Button type="link" size="small">
+            查看
+          </Button>
+          <Popconfirm
+            title="确定要删除吗？"
+            onConfirm={() => handleDelete(record.key)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button type="link" danger size="small">
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  const handleDelete = (key: string) => {
+    console.log('删除:', key);
+  };
+
+  return (
+    <Table
+      columns={columns}
+      dataSource={[]}
+      loading={loading}
+      pagination={{
+        total: 0,
+        pageSize: 10,
+        showSizeChanger: true,
+        showQuickJumper: true,
+        showTotal: (total, range) =>
+          `第 ${range[0]}-${range[1]} 条/共 ${total} 条`,
+      }}
+      scroll={{ x: 800 }}
+    />
+  );
+};
+```
+
+### 布局组件规范
+
+#### 1. 页面布局
+```tsx
+import React from 'react';
+import { Layout, Breadcrumb, Card } from 'antd';
+
+const { Content } = Layout;
+
+const PageLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <Layout>
+      <Content style={{ padding: '0 24px', minHeight: 'calc(100vh - 64px)' }}>
+        {/* 面包屑导航 */}
+        <Breadcrumb style={{ margin: '16px 0' }}>
+          <Breadcrumb.Item>首页</Breadcrumb.Item>
+          <Breadcrumb.Item>文档管理</Breadcrumb.Item>
+          <Breadcrumb.Item>文档列表</Breadcrumb.Item>
+        </Breadcrumb>
+
+        {/* 页面内容 */}
+        <div style={{ background: '#fff', minHeight: 360, padding: 24 }}>
+          {children}
+        </div>
+      </Content>
+    </Layout>
+  );
+};
+```
+
+#### 2. 栅格布局
+```tsx
+import React from 'react';
+import { Row, Col, Card } from 'antd';
+
+const GridLayout: React.FC = () => {
+  return (
+    <div>
+      {/* 基础栅格 */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={8} lg={6} xl={4}>
+          <Card>响应式卡片1</Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={6} xl={4}>
+          <Card>响应式卡片2</Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={6} xl={4}>
+          <Card>响应式卡片3</Card>
+        </Col>
+      </Row>
+
+      {/* 左右布局 */}
+      <Row gutter={24} style={{ marginTop: 24 }}>
+        <Col span={18}>
+          <Card title="主要内容区域">
+            <p>主要内容</p>
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card title="侧边栏">
+            <p>侧边栏内容</p>
+          </Card>
+        </Col>
+      </Row>
+    </div>
+  );
+};
+```
+
+## 交互设计规范
+
+### 反馈机制
+
+#### 1. 加载状态
+```tsx
+import React, { useState } from 'react';
+import { Button, Spin, Skeleton, Card } from 'antd';
+
+const LoadingStates: React.FC = () => {
+  const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  return (
+    <div>
+      {/* 按钮加载 */}
+      <Button 
+        type="primary" 
+        loading={loading}
+        onClick={() => setLoading(true)}
+      >
+        {loading ? '提交中...' : '提交'}
+      </Button>
+
+      {/* 页面加载 */}
+      <Spin spinning={loading} tip="加载中...">
+        <Card>
+          <p>页面内容</p>
+        </Card>
+      </Spin>
+
+      {/* 数据加载骨架屏 */}
+      <Card>
+        <Skeleton loading={dataLoading} active>
+          <p>实际数据内容</p>
+        </Skeleton>
+      </Card>
+    </div>
+  );
+};
+```
+
+#### 2. 消息提示
+```tsx
+import React from 'react';
+import { Button, message, notification, Modal } from 'antd';
+
+const MessageExample: React.FC = () => {
+  const showSuccess = () => {
+    message.success('操作成功！');
+  };
+
+  const showError = () => {
+    message.error('操作失败，请重试');
+  };
+
+  const showNotification = () => {
+    notification.open({
+      message: '系统通知',
+      description: '您有新的消息，请及时查看。',
+      duration: 4.5,
+    });
+  };
+
+  const showConfirm = () => {
+    Modal.confirm({
+      title: '确认删除',
+      content: '删除后无法恢复，确定要删除吗？',
+      okText: '确定',
+      cancelText: '取消',
+      onOk() {
+        console.log('确定删除');
+      },
+    });
+  };
+
+  return (
+    <div>
+      <Button onClick={showSuccess}>成功提示</Button>
+      <Button onClick={showError} style={{ marginLeft: 8 }}>
+        错误提示
+      </Button>
+      <Button onClick={showNotification} style={{ marginLeft: 8 }}>
+        通知
+      </Button>
+      <Button onClick={showConfirm} style={{ marginLeft: 8 }}>
+        确认对话框
+      </Button>
+    </div>
+  );
+};
+```
+
+### 表单验证规范
+
+#### 1. 实时验证
+```tsx
+import React from 'react';
+import { Form, Input, Button } from 'antd';
+
+const ValidateForm: React.FC = () => {
+  const [form] = Form.useForm();
+
+  const validateUsername = async (rule: any, value: string) => {
+    if (value && value.length < 3) {
+      throw new Error('用户名至少3个字符');
+    }
+    if (value && !/^[a-zA-Z0-9_]+$/.test(value)) {
+      throw new Error('用户名只能包含字母、数字和下划线');
+    }
+  };
+
+  return (
+    <Form form={form} layout="vertical">
+      <Form.Item
+        label="用户名"
+        name="username"
+        hasFeedback
+        rules={[
+          { required: true, message: '请输入用户名' },
+          { validator: validateUsername }
+        ]}
+      >
+        <Input placeholder="输入用户名" />
+      </Form.Item>
+
+      <Form.Item
+        label="密码"
+        name="password"
+        hasFeedback
+        rules={[
+          { required: true, message: '请输入密码' },
+          { min: 8, message: '密码至少8个字符' },
+          { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, message: '密码需包含大小写字母和数字' }
+        ]}
+      >
+        <Input.Password placeholder="输入密码" />
+      </Form.Item>
+
+      <Form.Item
+        label="确认密码"
+        name="confirmPassword"
+        dependencies={['password']}
+        hasFeedback
+        rules={[
+          { required: true, message: '请确认密码' },
+          ({ getFieldValue }) => ({
+            validator(_, value) {
+              if (!value || getFieldValue('password') === value) {
+                return Promise.resolve();
+              }
+              return Promise.reject(new Error('两次输入密码不一致'));
+            },
+          }),
+        ]}
+      >
+        <Input.Password placeholder="再次输入密码" />
+      </Form.Item>
+
+      <Form.Item>
+        <Button type="primary" htmlType="submit">
+          提交
+        </Button>
+      </Form.Item>
+    </Form>
+  );
+};
+```
+
+## 响应式设计规范
+
+### 断点系统
+```css
+/* Ant Design 断点系统 */
+@media (max-width: 575px) {
+  /* xs: 超小屏幕 手机 */
+  .responsive-hide-xs { display: none !important; }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+  /* sm: 小屏幕 平板 */
+  .responsive-hide-sm { display: none !important; }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  /* md: 中等屏幕 小桌面 */
+  .responsive-hide-md { display: none !important; }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+  /* lg: 大屏幕 桌面 */
+  .responsive-hide-lg { display: none !important; }
+}
+
+@media (min-width: 1200px) and (max-width: 1599px) {
+  /* xl: 超大屏幕 大桌面 */
+  .responsive-hide-xl { display: none !important; }
+}
+
+@media (min-width: 1600px) {
+  /* xxl: 超超大屏幕 */
+  .responsive-hide-xxl { display: none !important; }
+}
+```
+
+### 响应式组件
+```tsx
+import React from 'react';
+import { Table, Card, Space, Button } from 'antd';
+import { useMediaQuery } from 'react-responsive';
+
+const ResponsiveComponent: React.FC = () => {
+  const isMobile = useMediaQuery({ maxWidth: 767 });
+  const isTablet = useMediaQuery({ minWidth: 768, maxWidth: 991 });
+
+  const columns = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      responsive: ['sm'] as const, // 小屏及以上显示
+    },
+    {
+      title: '时间',
+      dataIndex: 'time',
+      key: 'time',
+      responsive: ['md'] as const, // 中屏及以上显示
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: () => (
+        <Space size="small">
+          {isMobile ? (
+            <Button size="small" type="link">
+              更多
+            </Button>
+          ) : (
+            <>
+              <Button size="small" type="link">编辑</Button>
+              <Button size="small" type="link" danger>删除</Button>
+            </>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <Card 
+      title="响应式表格"
+      extra={
+        !isMobile && (
+          <Button type="primary">新建</Button>
+        )
+      }
+    >
+      <Table
+        columns={columns}
+        dataSource={[]}
+        scroll={{ x: 600 }} // 横向滚动
+        pagination={{
+          pageSize: isMobile ? 5 : 10,
+          simple: isMobile, // 移动端简单分页
+        }}
+      />
+    </Card>
+  );
+};
+```
+
+## 无障碍设计规范
+
+### 语义化HTML
+```tsx
+import React from 'react';
+import { Button, Input, Form } from 'antd';
+
+const AccessibleForm: React.FC = () => {
+  return (
+    <main role="main">
+      <h1>用户注册</h1>
+      
+      <Form layout="vertical" role="form">
+        <Form.Item>
+          <label htmlFor="username">
+            用户名 <span aria-label="必填项">*</span>
+          </label>
+          <Input
+            id="username"
+            placeholder="请输入用户名"
+            aria-describedby="username-help"
+            aria-required="true"
+          />
+          <div id="username-help" className="ant-form-item-explain">
+            用户名需要3-20个字符
+          </div>
+        </Form.Item>
+
+        <Form.Item>
+          <Button
+            type="primary"
+            htmlType="submit"
+            aria-label="提交注册表单"
+          >
+            注册
+          </Button>
+        </Form.Item>
+      </Form>
+    </main>
+  );
+};
+```
+
+### 键盘导航
+```tsx
+import React, { useRef, useEffect } from 'react';
+import { Modal, Button, Input } from 'antd';
+
+const AccessibleModal: React.FC = () => {
+  const [visible, setVisible] = React.useState(false);
+  const firstInputRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (visible && firstInputRef.current) {
+      // 模态框打开时自动聚焦到第一个输入框
+      firstInputRef.current.focus();
+    }
+  }, [visible]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // ESC键关闭模态框
+    if (e.key === 'Escape') {
+      setVisible(false);
+    }
+  };
+
+  return (
+    <div>
+      <Button onClick={() => setVisible(true)}>
+        打开模态框
+      </Button>
+      
+      <Modal
+        title="无障碍模态框"
+        open={visible}
+        onCancel={() => setVisible(false)}
+        onKeyDown={handleKeyDown}
+        destroyOnClose
+        autoFocus
+        restoreFocus
+      >
+        <Input
+          ref={firstInputRef}
+          placeholder="第一个输入框"
+          aria-label="第一个输入框"
+        />
+        <Input
+          style={{ marginTop: 16 }}
+          placeholder="第二个输入框"
+          aria-label="第二个输入框"
+        />
+      </Modal>
+    </div>
+  );
+};
+```
+
+## 性能优化规范
+
+### 图片优化
+```tsx
+import React, { useState } from 'react';
+import { Image, Skeleton } from 'antd';
+
+const OptimizedImage: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {loading && <Skeleton.Image active />}
+      
+      <Image
+        src={src}
+        alt={alt}
+        style={{ display: loading ? 'none' : 'block' }}
+        placeholder={<Skeleton.Image />}
+        fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3Ik1RnG4W+FgYxN" // 默认占位图
+        onLoad={() => setLoading(false)}
+        onError={() => {
+          setError(true);
+          setLoading(false);
+        }}
+        lazy // 懒加载
+      />
+    </div>
+  );
+};
+```
+
+### 长列表优化
+```tsx
+import React from 'react';
+import { List, Avatar } from 'antd';
+import { FixedSizeList as VirtualList } from 'react-window';
+
+interface ItemData {
+  id: string;
+  title: string;
+  description: string;
+}
+
+const VirtualizedList: React.FC<{ data: ItemData[] }> = ({ data }) => {
+  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => (
+    <div style={style}>
+      <List.Item>
+        <List.Item.Meta
+          avatar={<Avatar size={40}>{data[index].title[0]}</Avatar>}
+          title={data[index].title}
+          description={data[index].description}
+        />
+      </List.Item>
+    </div>
+  );
+
+  return (
+    <VirtualList
+      height={400} // 可视区域高度
+      itemCount={data.length}
+      itemSize={73} // 每个项目的高度
+      width="100%"
+    >
+      {Row}
+    </VirtualList>
+  );
+};
+```
+
+## 测试规范
+
+### 组件测试
+```tsx
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { Button, message } from 'antd';
+import '@testing-library/jest-dom';
+
+// 测试组件
+const TestButton: React.FC = () => {
+  const handleClick = () => {
+    message.success('点击成功');
+  };
+
+  return (
+    <Button type="primary" onClick={handleClick}>
+      点击我
+    </Button>
+  );
+};
+
+// 测试用例
+describe('TestButton', () => {
+  test('renders button with correct text', () => {
+    render(<TestButton />);
+    expect(screen.getByText('点击我')).toBeInTheDocument();
+  });
+
+  test('has primary type class', () => {
+    render(<TestButton />);
+    const button = screen.getByRole('button');
+    expect(button).toHaveClass('ant-btn-primary');
+  });
+
+  test('shows success message on click', async () => {
+    const mockMessage = jest.spyOn(message, 'success');
+    render(<TestButton />);
+    
+    fireEvent.click(screen.getByText('点击我'));
+    
+    await waitFor(() => {
+      expect(mockMessage).toHaveBeenCalledWith('点击成功');
+    });
+  });
+});
+```
+
+## 开发工具配置
+
+### Stylelint配置
+```json
+{
+  "extends": [
+    "stylelint-config-standard",
+    "stylelint-config-prettier"
+  ],
+  "rules": {
+    "color-hex-case": "lower",
+    "color-hex-length": "short",
+    "declaration-block-trailing-semicolon": "always",
+    "indentation": 2,
+    "max-empty-lines": 2,
+    "rule-empty-line-before": [
+      "always",
+      {
+        "except": ["first-nested"],
+        "ignore": ["after-comment"]
+      }
+    ]
+  }
+}
+```
+
+### 设计Token自动化
+```javascript
+// design-tokens.js
+module.exports = {
+  colors: {
+    primary: '#1890ff',
+    success: '#52c41a',
+    warning: '#faad14',
+    error: '#f5222d',
+  },
+  spacing: {
+    xs: '4px',
+    sm: '8px',
+    md: '16px',
+    lg: '24px',
+    xl: '32px',
+  },
+  typography: {
+    fontSizes: {
+      xs: '12px',
+      sm: '14px',
+      base: '16px',
+      lg: '18px',
+      xl: '20px',
+    },
+  },
+};
+```
+
+## 部署和维护
+
+### 样式文件组织
+```
+src/
+├── styles/
+│   ├── variables.less          # 设计变量
+│   ├── mixins.less            # 样式混入
+│   ├── base.less              # 基础样式
+│   ├── components/            # 组件样式
+│   │   ├── button.less
+│   │   └── form.less
+│   └── pages/                 # 页面样式
+│       ├── home.less
+│       └── login.less
+```
+
+### 组件库文档
+```tsx
+/**
+ * 用户卡片组件
+ * 
+ * @example
+ * ```tsx
+ * <UserCard 
+ *   user={{ name: '张三', email: 'zhangsan@example.com' }}
+ *   showEdit={true}
+ *   onEdit={(user) => console.log('编辑用户', user)}
+ * />
+ * ```
+ */
+interface UserCardProps {
+  /** 用户信息 */
+  user: {
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+  /** 是否显示编辑按钮 */
+  showEdit?: boolean;
+  /** 编辑回调函数 */
+  onEdit?: (user: UserCardProps['user']) => void;
+}
+
+const UserCard: React.FC<UserCardProps> = ({ user, showEdit = false, onEdit }) => {
+  // 组件实现
+};
+```
+
+---
+
+**注意**: 所有UI开发必须严格遵循此规范，确保界面的一致性、可用性和可维护性。定期review设计系统，及时更新规范以适应业务发展需要。 

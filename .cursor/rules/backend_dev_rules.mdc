@@ -1,0 +1,1251 @@
+---
+alwaysApply: true
+---
+
+# PrintAutoTestcases - 后端开发标准流程规范
+
+## 项目概述
+基于FastAPI + SQLAlchemy + MongoDB + Redis + RabbitMQ的测试用例生成平台后端
+
+## 开发环境要求
+- Python 3.8+
+- FastAPI 0.104+
+- SQLAlchemy 2.0+
+- MongoDB 4.4+
+- Redis 6.0+
+- RabbitMQ 3.8+
+
+## 项目架构规范
+
+### 目录结构
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── api/                    # API路由层
+│   │   ├── v1/
+│   │   │   └── endpoints/      # API端点
+│   ├── core/                   # 核心配置
+│   │   ├── config.py          # 应用配置
+│   │   ├── security.py        # 安全相关
+│   │   └── database.py        # 数据库配置
+│   ├── db/                     # 数据库层
+│   │   ├── models/            # 数据模型
+│   │   └── session/           # 数据库会话
+│   ├── services/               # 业务逻辑层
+│   │   ├── ai/                # AI服务
+│   │   ├── ocr/               # OCR服务
+│   │   └── xmind/             # XMind服务
+│   └── utils/                  # 工具函数
+├── main.py                     # 应用入口
+├── requirements.txt            # 依赖管理
+└── .env                       # 环境变量
+```
+
+## 代码规范
+
+### 命名规范
+- **文件名**: snake_case (user_service.py, document_models.py)
+- **类名**: PascalCase (UserService, DocumentModel)
+- **函数/变量**: snake_case (get_user, user_id)
+- **常量**: UPPER_SNAKE_CASE (DATABASE_URL, MAX_FILE_SIZE)
+- **私有方法**: _private_method
+
+### 导入规范
+```python
+# 标准库导入
+import os
+import json
+from datetime import datetime
+from typing import Optional, List, Dict, Any
+
+# 第三方库导入
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+
+# 本地导入
+from app.core.config import settings
+from app.db.session import get_db
+from app.services.user_service import UserService
+```
+
+## API开发规范
+
+### 路由结构
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
+from typing import Optional
+
+router = APIRouter()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+class DocumentRequest(BaseModel):
+    title: str
+    content: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "title": "测试文档",
+                "content": "文档内容"
+            }
+        }
+
+@router.post("/documents", response_model=DocumentResponse)
+async def create_document(
+    request: DocumentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    创建文档
+    
+    Args:
+        request: 文档创建请求
+        db: 数据库会话
+        current_user: 当前用户
+        
+    Returns:
+        DocumentResponse: 创建的文档信息
+        
+    Raises:
+        HTTPException: 当文档创建失败时抛出400错误
+    """
+    try:
+        document = await DocumentService.create_document(
+            db=db,
+            title=request.title,
+            content=request.content,
+            user_id=current_user.id
+        )
+        return DocumentResponse.from_orm(document)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"创建文档失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="内部服务器错误")
+```
+
+### 响应模型规范
+```python
+from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Optional
+
+class BaseResponse(BaseModel):
+    """基础响应模型"""
+    success: bool = True
+    message: str = "操作成功"
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class DocumentResponse(BaseResponse):
+    """文档响应模型"""
+    data: Optional["DocumentData"] = None
+
+class DocumentData(BaseModel):
+    """文档数据模型"""
+    id: str
+    title: str
+    content: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+```
+
+### 错误处理规范
+```python
+import logging
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+class ServiceException(Exception):
+    """业务逻辑异常"""
+    def __init__(self, message: str, code: int = 400):
+        self.message = message
+        self.code = code
+        super().__init__(message)
+
+async def handle_service_errors(func, *args, **kwargs) -> Any:
+    """统一服务错误处理装饰器"""
+    try:
+        return await func(*args, **kwargs)
+    except ServiceException as e:
+        raise HTTPException(status_code=e.code, detail=e.message)
+    except IntegrityError as e:
+        logger.error(f"数据库完整性错误: {str(e)}")
+        raise HTTPException(status_code=409, detail="数据冲突")
+    except Exception as e:
+        logger.error(f"未知错误: {str(e)}")
+        raise HTTPException(status_code=500, detail="内部服务器错误")
+```
+
+## 数据库规范
+
+### 模型定义
+```python
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+from datetime import datetime
+
+Base = declarative_base()
+
+class BaseModel(Base):
+    """基础模型类"""
+    __abstract__ = True
+    
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_deleted = Column(Boolean, default=False)
+
+class User(BaseModel):
+    """用户模型"""
+    __tablename__ = "users"
+    
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    
+    # 关联关系
+    documents = relationship("Document", back_populates="user")
+    
+    def __repr__(self):
+        return f"<User(email='{self.email}')>"
+```
+
+### 数据库操作规范
+```python
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from typing import Optional, List
+import logging
+
+logger = logging.getLogger(__name__)
+
+class BaseRepository:
+    """基础仓储类"""
+    
+    def __init__(self, db: Session):
+        self.db = db
+    
+    async def get_by_id(self, model_class, id: int) -> Optional[Any]:
+        """根据ID获取对象"""
+        try:
+            return self.db.query(model_class).filter(
+                model_class.id == id,
+                model_class.is_deleted == False
+            ).first()
+        except Exception as e:
+            logger.error(f"查询对象失败: {str(e)}")
+            raise
+    
+    async def create(self, model_class, **kwargs) -> Any:
+        """创建对象"""
+        try:
+            obj = model_class(**kwargs)
+            self.db.add(obj)
+            self.db.commit()
+            self.db.refresh(obj)
+            return obj
+        except IntegrityError as e:
+            self.db.rollback()
+            logger.error(f"创建对象失败，数据冲突: {str(e)}")
+            raise ServiceException("数据冲突，请检查输入", 409)
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"创建对象失败: {str(e)}")
+            raise
+    
+    async def soft_delete(self, obj: Any) -> bool:
+        """软删除对象"""
+        try:
+            obj.is_deleted = True
+            obj.updated_at = datetime.utcnow()
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"删除对象失败: {str(e)}")
+            raise
+```
+
+## 服务层规范
+
+### 服务类结构
+```python
+from abc import ABC, abstractmethod
+from typing import Optional, List, Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
+
+class BaseService(ABC):
+    """基础服务类"""
+    
+    def __init__(self, repository: BaseRepository):
+        self.repository = repository
+    
+    @abstractmethod
+    async def validate_input(self, **kwargs) -> bool:
+        """输入验证"""
+        pass
+
+class DocumentService(BaseService):
+    """文档服务类"""
+    
+    async def validate_input(self, title: str, **kwargs) -> bool:
+        """验证文档输入"""
+        if not title or len(title.strip()) == 0:
+            raise ServiceException("文档标题不能为空")
+        if len(title) > 255:
+            raise ServiceException("文档标题长度不能超过255字符")
+        return True
+    
+    async def create_document(
+        self, 
+        title: str, 
+        content: Optional[str] = None,
+        user_id: int = None
+    ) -> Document:
+        """创建文档"""
+        await self.validate_input(title=title)
+        
+        # 检查用户是否存在
+        user = await self.repository.get_by_id(User, user_id)
+        if not user:
+            raise ServiceException("用户不存在", 404)
+        
+        # 创建文档
+        document = await self.repository.create(
+            Document,
+            title=title.strip(),
+            content=content,
+            user_id=user_id
+        )
+        
+        logger.info(f"用户 {user_id} 创建文档: {document.id}")
+        return document
+    
+    async def get_user_documents(
+        self, 
+        user_id: int, 
+        page: int = 1, 
+        size: int = 10
+    ) -> Dict[str, Any]:
+        """获取用户文档列表"""
+        try:
+            offset = (page - 1) * size
+            query = self.repository.db.query(Document).filter(
+                Document.user_id == user_id,
+                Document.is_deleted == False
+            )
+            
+            total = query.count()
+            documents = query.offset(offset).limit(size).all()
+            
+            return {
+                "items": documents,
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": (total + size - 1) // size
+            }
+        except Exception as e:
+            logger.error(f"获取用户文档失败: {str(e)}")
+            raise
+```
+
+## 异步任务规范
+
+### RabbitMQ队列处理
+```python
+import asyncio
+import json
+import logging
+from typing import Dict, Any
+from app.utils.queue_utils import RabbitMQService
+from app.services.ai_service import AIService
+
+logger = logging.getLogger(__name__)
+
+class TaskProcessor:
+    """任务处理器"""
+    
+    def __init__(self):
+        self.rabbitmq = RabbitMQService()
+        self.ai_service = AIService()
+    
+    async def process_testcase_generation(self, message_body: str):
+        """处理测试用例生成任务"""
+        try:
+            data = json.loads(message_body)
+            document_id = data.get("document_id")
+            extracted_text = data.get("extracted_text")
+            
+            if not document_id or not extracted_text:
+                logger.error("任务数据不完整")
+                return False
+            
+            # 生成测试用例
+            test_cases = await self.ai_service.generate_test_cases(extracted_text)
+            
+            # 更新文档状态
+            await self.update_document_test_cases(document_id, test_cases)
+            
+            logger.info(f"文档 {document_id} 测试用例生成完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"处理测试用例生成任务失败: {str(e)}")
+            return False
+    
+    async def update_document_test_cases(self, document_id: str, test_cases: str):
+        """更新文档测试用例"""
+        # 实现数据库更新逻辑
+        pass
+```
+
+## 安全规范
+
+### 认证和授权
+```python
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from datetime import datetime, timedelta
+from app.core.config import settings
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """验证密码"""
+    return pwd_context.verify(plain_password, hashed_password)
+
+def hash_password(password: str) -> str:
+    """密码哈希"""
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """创建访问令牌"""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    """获取当前用户"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="无效的认证凭据",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = await UserService.get_user_by_email(email)
+    if user is None:
+        raise credentials_exception
+    return user
+```
+
+## 测试规范
+
+### 单元测试
+```python
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.main import app
+from app.db.base import Base
+from app.db.session import get_db
+
+# 测试数据库
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture
+def db_session():
+    """测试数据库会话"""
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture
+def client(db_session):
+    """测试客户端"""
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            db_session.close()
+    
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+
+def test_create_document(client, db_session):
+    """测试创建文档"""
+    # 准备测试数据
+    user_data = {"email": "test@example.com", "password": "testpass"}
+    
+    # 创建用户
+    response = client.post("/api/v1/users/register", json=user_data)
+    assert response.status_code == 201
+    
+    # 登录获取token
+    login_response = client.post("/api/v1/auth/login", json=user_data)
+    token = login_response.json()["access_token"]
+    
+    # 创建文档
+    document_data = {"title": "测试文档", "content": "测试内容"}
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = client.post("/api/v1/documents", json=document_data, headers=headers)
+    assert response.status_code == 201
+    assert response.json()["data"]["title"] == "测试文档"
+```
+
+## 日志规范
+
+### 日志配置
+```python
+import logging
+import sys
+from datetime import datetime
+
+def setup_logging():
+    """配置日志"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(f"logs/app_{datetime.now().strftime('%Y%m%d')}.log"),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+
+# 业务日志使用示例
+logger = logging.getLogger(__name__)
+
+async def some_business_function():
+    logger.info("开始执行业务逻辑")
+    try:
+        # 业务逻辑
+        result = await process_data()
+        logger.info(f"业务逻辑执行成功: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"业务逻辑执行失败: {str(e)}", exc_info=True)
+        raise
+```
+
+## 开发流程
+
+### 1. 开发前准备
+- 创建功能分支: `git checkout -b feature/feature-name`
+- 了解需求和API设计
+- 配置开发环境和数据库
+
+### 2. 开发规范
+- 遵循代码规范和架构设计
+- 编写单元测试和集成测试
+- 及时提交代码: `git commit -m "feat: 添加文档管理功能"`
+
+### 3. 代码审查
+- 运行测试: `pytest tests/`
+- 检查代码覆盖率: `coverage run -m pytest && coverage report`
+- 代码静态分析: `flake8 app/`
+
+### 4. 部署规范
+- 配置环境变量
+- 数据库迁移
+- 服务健康检查
+
+## 性能优化规范
+
+### 1. 数据库优化
+- 合理使用索引
+- 避免N+1查询问题
+- 使用数据库连接池
+
+### 2. 缓存策略
+```python
+from app.utils.cache_utils import RedisCache
+
+cache = RedisCache()
+
+async def get_user_cache(user_id: int) -> Optional[User]:
+    """获取用户缓存"""
+    cache_key = f"user:{user_id}"
+    cached_user = cache.get_cache(cache_key)
+    
+    if cached_user:
+        return json.loads(cached_user)
+    
+    user = await UserService.get_user_by_id(user_id)
+    if user:
+        cache.set_cache(cache_key, json.dumps(user.dict()), ttl=3600)
+    
+    return user
+```
+
+### 3. 异步处理
+- 使用异步IO处理并发请求
+- 长时间任务使用消息队列
+- 合理设置连接池大小
+
+---
+
+**注意**: 所有后端开发必须严格遵循此规范，确保代码质量、安全性和可维护性。 # PrintAutoTestcases - 后端开发标准流程规范
+
+## 项目概述
+基于FastAPI + SQLAlchemy + MongoDB + Redis + RabbitMQ的测试用例生成平台后端
+
+## 开发环境要求
+- Python 3.8+
+- FastAPI 0.104+
+- SQLAlchemy 2.0+
+- MongoDB 4.4+
+- Redis 6.0+
+- RabbitMQ 3.8+
+
+## 项目架构规范
+
+### 目录结构
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── api/                    # API路由层
+│   │   ├── v1/
+│   │   │   └── endpoints/      # API端点
+│   ├── core/                   # 核心配置
+│   │   ├── config.py          # 应用配置
+│   │   ├── security.py        # 安全相关
+│   │   └── database.py        # 数据库配置
+│   ├── db/                     # 数据库层
+│   │   ├── models/            # 数据模型
+│   │   └── session/           # 数据库会话
+│   ├── services/               # 业务逻辑层
+│   │   ├── ai/                # AI服务
+│   │   ├── ocr/               # OCR服务
+│   │   └── xmind/             # XMind服务
+│   └── utils/                  # 工具函数
+├── main.py                     # 应用入口
+├── requirements.txt            # 依赖管理
+└── .env                       # 环境变量
+```
+
+## 代码规范
+
+### 命名规范
+- **文件名**: snake_case (user_service.py, document_models.py)
+- **类名**: PascalCase (UserService, DocumentModel)
+- **函数/变量**: snake_case (get_user, user_id)
+- **常量**: UPPER_SNAKE_CASE (DATABASE_URL, MAX_FILE_SIZE)
+- **私有方法**: _private_method
+
+### 导入规范
+```python
+# 标准库导入
+import os
+import json
+from datetime import datetime
+from typing import Optional, List, Dict, Any
+
+# 第三方库导入
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+
+# 本地导入
+from app.core.config import settings
+from app.db.session import get_db
+from app.services.user_service import UserService
+```
+
+## API开发规范
+
+### 路由结构
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
+from typing import Optional
+
+router = APIRouter()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+class DocumentRequest(BaseModel):
+    title: str
+    content: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "title": "测试文档",
+                "content": "文档内容"
+            }
+        }
+
+@router.post("/documents", response_model=DocumentResponse)
+async def create_document(
+    request: DocumentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    创建文档
+    
+    Args:
+        request: 文档创建请求
+        db: 数据库会话
+        current_user: 当前用户
+        
+    Returns:
+        DocumentResponse: 创建的文档信息
+        
+    Raises:
+        HTTPException: 当文档创建失败时抛出400错误
+    """
+    try:
+        document = await DocumentService.create_document(
+            db=db,
+            title=request.title,
+            content=request.content,
+            user_id=current_user.id
+        )
+        return DocumentResponse.from_orm(document)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"创建文档失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="内部服务器错误")
+```
+
+### 响应模型规范
+```python
+from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Optional
+
+class BaseResponse(BaseModel):
+    """基础响应模型"""
+    success: bool = True
+    message: str = "操作成功"
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class DocumentResponse(BaseResponse):
+    """文档响应模型"""
+    data: Optional["DocumentData"] = None
+
+class DocumentData(BaseModel):
+    """文档数据模型"""
+    id: str
+    title: str
+    content: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+```
+
+### 错误处理规范
+```python
+import logging
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+class ServiceException(Exception):
+    """业务逻辑异常"""
+    def __init__(self, message: str, code: int = 400):
+        self.message = message
+        self.code = code
+        super().__init__(message)
+
+async def handle_service_errors(func, *args, **kwargs) -> Any:
+    """统一服务错误处理装饰器"""
+    try:
+        return await func(*args, **kwargs)
+    except ServiceException as e:
+        raise HTTPException(status_code=e.code, detail=e.message)
+    except IntegrityError as e:
+        logger.error(f"数据库完整性错误: {str(e)}")
+        raise HTTPException(status_code=409, detail="数据冲突")
+    except Exception as e:
+        logger.error(f"未知错误: {str(e)}")
+        raise HTTPException(status_code=500, detail="内部服务器错误")
+```
+
+## 数据库规范
+
+### 模型定义
+```python
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+from datetime import datetime
+
+Base = declarative_base()
+
+class BaseModel(Base):
+    """基础模型类"""
+    __abstract__ = True
+    
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_deleted = Column(Boolean, default=False)
+
+class User(BaseModel):
+    """用户模型"""
+    __tablename__ = "users"
+    
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    
+    # 关联关系
+    documents = relationship("Document", back_populates="user")
+    
+    def __repr__(self):
+        return f"<User(email='{self.email}')>"
+```
+
+### 数据库操作规范
+```python
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from typing import Optional, List
+import logging
+
+logger = logging.getLogger(__name__)
+
+class BaseRepository:
+    """基础仓储类"""
+    
+    def __init__(self, db: Session):
+        self.db = db
+    
+    async def get_by_id(self, model_class, id: int) -> Optional[Any]:
+        """根据ID获取对象"""
+        try:
+            return self.db.query(model_class).filter(
+                model_class.id == id,
+                model_class.is_deleted == False
+            ).first()
+        except Exception as e:
+            logger.error(f"查询对象失败: {str(e)}")
+            raise
+    
+    async def create(self, model_class, **kwargs) -> Any:
+        """创建对象"""
+        try:
+            obj = model_class(**kwargs)
+            self.db.add(obj)
+            self.db.commit()
+            self.db.refresh(obj)
+            return obj
+        except IntegrityError as e:
+            self.db.rollback()
+            logger.error(f"创建对象失败，数据冲突: {str(e)}")
+            raise ServiceException("数据冲突，请检查输入", 409)
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"创建对象失败: {str(e)}")
+            raise
+    
+    async def soft_delete(self, obj: Any) -> bool:
+        """软删除对象"""
+        try:
+            obj.is_deleted = True
+            obj.updated_at = datetime.utcnow()
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"删除对象失败: {str(e)}")
+            raise
+```
+
+## 服务层规范
+
+### 服务类结构
+```python
+from abc import ABC, abstractmethod
+from typing import Optional, List, Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
+
+class BaseService(ABC):
+    """基础服务类"""
+    
+    def __init__(self, repository: BaseRepository):
+        self.repository = repository
+    
+    @abstractmethod
+    async def validate_input(self, **kwargs) -> bool:
+        """输入验证"""
+        pass
+
+class DocumentService(BaseService):
+    """文档服务类"""
+    
+    async def validate_input(self, title: str, **kwargs) -> bool:
+        """验证文档输入"""
+        if not title or len(title.strip()) == 0:
+            raise ServiceException("文档标题不能为空")
+        if len(title) > 255:
+            raise ServiceException("文档标题长度不能超过255字符")
+        return True
+    
+    async def create_document(
+        self, 
+        title: str, 
+        content: Optional[str] = None,
+        user_id: int = None
+    ) -> Document:
+        """创建文档"""
+        await self.validate_input(title=title)
+        
+        # 检查用户是否存在
+        user = await self.repository.get_by_id(User, user_id)
+        if not user:
+            raise ServiceException("用户不存在", 404)
+        
+        # 创建文档
+        document = await self.repository.create(
+            Document,
+            title=title.strip(),
+            content=content,
+            user_id=user_id
+        )
+        
+        logger.info(f"用户 {user_id} 创建文档: {document.id}")
+        return document
+    
+    async def get_user_documents(
+        self, 
+        user_id: int, 
+        page: int = 1, 
+        size: int = 10
+    ) -> Dict[str, Any]:
+        """获取用户文档列表"""
+        try:
+            offset = (page - 1) * size
+            query = self.repository.db.query(Document).filter(
+                Document.user_id == user_id,
+                Document.is_deleted == False
+            )
+            
+            total = query.count()
+            documents = query.offset(offset).limit(size).all()
+            
+            return {
+                "items": documents,
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": (total + size - 1) // size
+            }
+        except Exception as e:
+            logger.error(f"获取用户文档失败: {str(e)}")
+            raise
+```
+
+## 异步任务规范
+
+### RabbitMQ队列处理
+```python
+import asyncio
+import json
+import logging
+from typing import Dict, Any
+from app.utils.queue_utils import RabbitMQService
+from app.services.ai_service import AIService
+
+logger = logging.getLogger(__name__)
+
+class TaskProcessor:
+    """任务处理器"""
+    
+    def __init__(self):
+        self.rabbitmq = RabbitMQService()
+        self.ai_service = AIService()
+    
+    async def process_testcase_generation(self, message_body: str):
+        """处理测试用例生成任务"""
+        try:
+            data = json.loads(message_body)
+            document_id = data.get("document_id")
+            extracted_text = data.get("extracted_text")
+            
+            if not document_id or not extracted_text:
+                logger.error("任务数据不完整")
+                return False
+            
+            # 生成测试用例
+            test_cases = await self.ai_service.generate_test_cases(extracted_text)
+            
+            # 更新文档状态
+            await self.update_document_test_cases(document_id, test_cases)
+            
+            logger.info(f"文档 {document_id} 测试用例生成完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"处理测试用例生成任务失败: {str(e)}")
+            return False
+    
+    async def update_document_test_cases(self, document_id: str, test_cases: str):
+        """更新文档测试用例"""
+        # 实现数据库更新逻辑
+        pass
+```
+
+## 安全规范
+
+### 认证和授权
+```python
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from datetime import datetime, timedelta
+from app.core.config import settings
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """验证密码"""
+    return pwd_context.verify(plain_password, hashed_password)
+
+def hash_password(password: str) -> str:
+    """密码哈希"""
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """创建访问令牌"""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    """获取当前用户"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="无效的认证凭据",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = await UserService.get_user_by_email(email)
+    if user is None:
+        raise credentials_exception
+    return user
+```
+
+## 测试规范
+
+### 单元测试
+```python
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.main import app
+from app.db.base import Base
+from app.db.session import get_db
+
+# 测试数据库
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture
+def db_session():
+    """测试数据库会话"""
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture
+def client(db_session):
+    """测试客户端"""
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            db_session.close()
+    
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+
+def test_create_document(client, db_session):
+    """测试创建文档"""
+    # 准备测试数据
+    user_data = {"email": "test@example.com", "password": "testpass"}
+    
+    # 创建用户
+    response = client.post("/api/v1/users/register", json=user_data)
+    assert response.status_code == 201
+    
+    # 登录获取token
+    login_response = client.post("/api/v1/auth/login", json=user_data)
+    token = login_response.json()["access_token"]
+    
+    # 创建文档
+    document_data = {"title": "测试文档", "content": "测试内容"}
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = client.post("/api/v1/documents", json=document_data, headers=headers)
+    assert response.status_code == 201
+    assert response.json()["data"]["title"] == "测试文档"
+```
+
+## 日志规范
+
+### 日志配置
+```python
+import logging
+import sys
+from datetime import datetime
+
+def setup_logging():
+    """配置日志"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(f"logs/app_{datetime.now().strftime('%Y%m%d')}.log"),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+
+# 业务日志使用示例
+logger = logging.getLogger(__name__)
+
+async def some_business_function():
+    logger.info("开始执行业务逻辑")
+    try:
+        # 业务逻辑
+        result = await process_data()
+        logger.info(f"业务逻辑执行成功: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"业务逻辑执行失败: {str(e)}", exc_info=True)
+        raise
+```
+
+## 开发流程
+
+### 1. 开发前准备
+- 创建功能分支: `git checkout -b feature/feature-name`
+- 了解需求和API设计
+- 配置开发环境和数据库
+
+### 2. 开发规范
+- 遵循代码规范和架构设计
+- 编写单元测试和集成测试
+- 及时提交代码: `git commit -m "feat: 添加文档管理功能"`
+
+### 3. 代码审查
+- 运行测试: `pytest tests/`
+- 检查代码覆盖率: `coverage run -m pytest && coverage report`
+- 代码静态分析: `flake8 app/`
+
+### 4. 部署规范
+- 配置环境变量
+- 数据库迁移
+- 服务健康检查
+
+## 性能优化规范
+
+### 1. 数据库优化
+- 合理使用索引
+- 避免N+1查询问题
+- 使用数据库连接池
+
+### 2. 缓存策略
+```python
+from app.utils.cache_utils import RedisCache
+
+cache = RedisCache()
+
+async def get_user_cache(user_id: int) -> Optional[User]:
+    """获取用户缓存"""
+    cache_key = f"user:{user_id}"
+    cached_user = cache.get_cache(cache_key)
+    
+    if cached_user:
+        return json.loads(cached_user)
+    
+    user = await UserService.get_user_by_id(user_id)
+    if user:
+        cache.set_cache(cache_key, json.dumps(user.dict()), ttl=3600)
+    
+    return user
+```
+
+### 3. 异步处理
+- 使用异步IO处理并发请求
+- 长时间任务使用消息队列
+- 合理设置连接池大小
+
+---
+
+**注意**: 所有后端开发必须严格遵循此规范，确保代码质量、安全性和可维护性。 
