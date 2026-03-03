@@ -1626,7 +1626,7 @@ def run():
     st.markdown("""
         <div class="gradient-header">
             <h1>🧪 TestGen AI Testcases </h1>
-            <p>基于 AI 自动化生成测试用例。支持文本输入、文档上传、网页链接、图片识别等方式，先解析测试点、按测试点生成用例 · 覆盖更全、列表内直接编辑</p>
+            <p>基于 AI 自动化生成测试用例。支持文本输入、文档上传、网页链接、图片识别等方式，先解析测试点、按测试点生成用例 · 覆盖更全、列表内直接编辑保存、导出各种格式文档。</p>
         </div>
     """, unsafe_allow_html=True)
     init_session_state()

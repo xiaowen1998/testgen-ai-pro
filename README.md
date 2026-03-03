@@ -156,6 +156,8 @@ TestgenAI/
 - **生成时报错「未配置 QWEN_API_KEY」**  
   在项目根目录创建 `.env`，填入 `QWEN_API_KEY=sk-xxx`。
 
+- **PDF 导出报错「No module named 'reportlab'」**  
+  请执行 `pip install reportlab` 或重新安装依赖：`pip install -r requirements.txt`。发布/部署后若仍报错，请确认部署环境已安装 `reportlab>=4.0.0` 并重新构建。
 - **PDF 中文显示异常**  
   可设置环境变量 `PDF_CHINESE_FONT` 指向本地 TTF 字体路径；或优先使用 **Word** / **Excel** 导出。
 - **XMind 打开提示修复**  
